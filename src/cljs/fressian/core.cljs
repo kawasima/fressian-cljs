@@ -35,15 +35,15 @@
 
     "sym"    (fn [reader tag component-count]
               (symbol (read-object reader) (read-object reader)))
-    
+
     "map"    (fn [reader tag component-count]
               (let [kvs (read-object reader)]
                 (apply hash-map kvs)))})
 
 (defmulti create-reader type)
 (defmethod create-reader js/ArrayBuffer [buf & {:keys [handlers]}]
-  (FressianReader. buf 0
-    (or handlers cljs-read-handler)))
+  (atom (FressianReader. buf 0
+    (or handlers cljs-read-handler))))
 
 (defmethod create-reader js/Blob [buf & {:keys [handlers]}]
   (throw "Blob FressianReader has been implemented yet."))

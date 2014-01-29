@@ -13,7 +13,7 @@
         :compiler { :optimizations :whitespace
                     :output-to "target/cljs/testable.js"
                     :pretty-print true}}}
-    :tesst-commands
+    :test-commands
     { "unit" ["phantomjs" :runner
                "this.literal_js_was_evaulated=true"
                "target/cljs/testable.js"]}}

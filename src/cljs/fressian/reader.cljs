@@ -14,7 +14,7 @@
 (def standard-extension-hadlers (atom nil))
 
 (def core-handlers
-  {:list list
+  {:list #(apply list %)
    :bytes identity
    :double identity
    :float identity})
@@ -23,7 +23,8 @@
 
 (defn- read-and-cache-object [reader cache]
   (let [o (read-object reader)]
-    (swap! cache conj o)))
+    (swap! cache conj o)
+    o))
 
 (defn- lookup-cache [cache index]
   (if (< index (count cache))
@@ -34,7 +35,7 @@
     (throw (str "Requested object beyond end of cache at " index))))
 
 (defn- get-priority-cache []
-  (when (nil? (@priority-cache))
+  (when (nil? @priority-cache)
     (reset! priority-cache []))
   priority-cache)
 
@@ -48,13 +49,13 @@
   (reset! struct-cache nil))
 
 (defn- read-next-code [reader]
-  (let [code (js/Int8Array. (:buffer @reader) (:index @reader) 1)]
+  (let [code (js/Uint8Array. (:buffer @reader) (:index @reader) 1)]
     (swap! reader update-in [:index] inc)
     (aget code 0)))
 
 (defn read-fully [reader length]
-  (let [buf (js/Int8Array. (:buffer @reader) (:index @reader) length)]
-    (swap! reader update-in [:index] inc)
+  (let [buf (js/Uint8Array. (:buffer @reader) (:index @reader) length)]
+    (swap! reader update-in [:index] + length)
     buf))
 
 (defn read-raw-byte [reader]
@@ -187,9 +188,9 @@
   ((core-handlers :list) (read-objects reader length)))
 
 (defn- handle-struct [reader tag fields]
-  (if-let [h (or (lookup (reader :handlers) tag)
+  (if-let [h (or (get (get @reader :handlers) tag)
                  (get @standard-extension-hadlers tag))]
-    (h tag fields)
+    (h reader tag fields)
     (TaggedObject. tag (read-objects reader fields) nil)))
 
 (defn- validate-footer [reader length magic-from-stream]
@@ -216,7 +217,7 @@
                                (read-raw-int40 reader))
    (<= 0x7C code 0x7F) (bit-or (bit-shift-left (- code (codes :int-packed-7-zero)) 48)
                                (read-raw-int48 reader))
-   (= code (codes :put-ptiotiry-cache)) (read-and-cache-object reader (get-priority-cache))
+   (= code (codes :put-priority-cache)) (read-and-cache-object reader (get-priority-cache))
    (= code (codes :get-priority-cache)) (lookup-cache (get-priority-cache) (read-int32 reader))
 
    (<= (codes :priority-cache-packed-start) code (+ (codes :priority-cache-packed-start) 31))
@@ -250,7 +251,7 @@
    (= code (codes :bytes-chunk)) (internal-read-chunked-bytes reader)
 
    (<= (codes :string-packed-length-start) code (+ (codes :string-packed-length-start) 7))
-   (internal-read-string reader (- code (codes :bytes-packed-length-start)))
+   (internal-read-string reader (- code (codes :string-packed-length-start)))
 
    (= code (codes :string)) (internal-read-string reader (read-count reader))
    (= code (codes :string-chunk)) (internal-read-chunked-string reader (read-count reader))
@@ -265,7 +266,7 @@
    (= code (codes :true)) true
    (= code (codes :false)) false
 
-   (some #{(codes :double) (codes :double-0) (codes :double-1)} code)
+   (some #{(codes :double) (codes :double-0) (codes :double-1)} [code])
    (internal-read-double reader code)
    (= code (codes :float)) ((core-handlers :float) (read-raw-float reader))
    (= code (codes :int)) (read-raw-int64 reader)
@@ -310,6 +311,7 @@
      :default (let [o (read reader code)]
                 (if (= js/Number (type o)) o
                   (throw (expected "int64" code o)))))))
+
 (defn read-object [reader]
   (read reader (read-next-code reader)))
 
