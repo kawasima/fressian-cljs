@@ -1,8 +1,8 @@
-(ns fressian.core-test
+(ns fressian-cljs.core-test
   (:require-macros [cemerick.cljs.test
                      :refer (is deftest with-test run-tests testing test-var)])
   (:require [cemerick.cljs.test :as t]
-            [fressian.core :as fress]))
+            [fressian-cljs.core :as fress]))
 
 (deftest read-test
   (let [ buf (js/ArrayBuffer. 13)

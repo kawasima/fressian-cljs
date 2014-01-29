@@ -1,4 +1,4 @@
-(ns fressian.defs)
+(ns fressian-cljs.defs)
 
 (def codes
   { :priority-cache-packed-start 0x80

@@ -1,7 +1,7 @@
-(ns fressian.core
+(ns fressian-cljs.core
   (:require [clojure.string :as string])
-  (:use [fressian.reader :only [read-object FressianReader]]
-        [fressian.defs :only [TaggedObject]]))
+  (:use [fressian-cljs.reader :only [read-object FressianReader]]
+        [fressian-cljs.defs :only [TaggedObject]]))
 
 (defn- record-map-constructor-name
   "Return the map constructor for a record"

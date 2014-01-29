@@ -1,5 +1,5 @@
-(ns fressian.fns
-  (:require [fressian.uuid :as uuid]
+(ns fressian-cljs.fns
+  (:require [fressian-cljs.uuid :as uuid]
             [goog.string :as gstring]
             [goog.string.format]))
 

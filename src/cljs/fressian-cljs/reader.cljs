@@ -1,7 +1,8 @@
-(ns fressian.reader
-  (:use [fressian.defs :only [codes TaggedObject]]
-        [fressian.fns :only [read-utf8-chars expected lookup]])
-  (:require [goog.string :as gstring]))
+(ns fressian-cljs.reader
+  (:use [fressian-cljs.defs :only [codes TaggedObject]]
+        [fressian-cljs.fns :only [read-utf8-chars expected lookup]])
+  (:require [goog.string :as gstring]
+            [goog.string.format]))
 
 (declare read-object)
 (declare internal-read-int)

@@ -1,4 +1,4 @@
-(ns fressian.uuid)
+(ns fressian-cljs.uuid)
 
 (defn rng []
   (let [r (atom 0)]
