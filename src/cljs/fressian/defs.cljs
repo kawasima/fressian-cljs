@@ -1,0 +1,77 @@
+(ns fressian.defs)
+
+(def codes
+  { :priority-cache-packed-start 0x80
+    :priority-cache-packed-end 0xA0
+    :struct-cache-packed-start 0xA0
+    :struct-cache-packed-end 0xB0
+    :long-array    0xB0
+    :double-array  0xB1
+    :boolean-array 0xB2
+    :int-array     0xB3
+    :float-array   0xB4
+    :object-array  0xB5
+    :map    0xC0
+    :set    0xC1
+    :uuid   0xC3
+    :regex  0xC4
+    :uri    0xC5
+    :bigint 0xC6
+    :bigdec 0xC7
+    :inst   0xC8
+    :sym    0xC9
+    :key    0xCA
+    :get-priority-cache 0xCC
+    :put-priority-cache 0xCD
+    :precache 0xCE
+    :footer 0xCF
+    :footer-magic 0xCFCFCFCF
+    :bytes-packed-length-start 0xD0
+    :bytes-packed-length-end   0xD8
+    :bytes-chunk 0xD8
+    :bytes 0xD9
+    :string-packed-length-start 0xDA
+    :string-packed-length-end   0xE2
+    :string-chunk 0xE2
+    :string 0xE3
+    :list-packed-length-start 0xE4
+    :list-packed-length-end   0xEC
+    :list 0xEC
+    :begin-closed-list 0xED
+    :begin-open-list   0xEE
+    :structtype 0xEF
+    :struct 0xF0
+    :meta   0xF1
+    :any    0xF4
+    :true   0xF5
+    :false  0xF6
+    :null   0xF7
+    :int    0xF8
+    :float  0xF9
+    :double 0xFA
+    :double-0 0xFB
+    :double-1 0xFC
+    :end-collection 0xFD
+    :reset-caches   0xFE
+    :int-packed-1-start 0xFF
+    :int-packed-1-end   0x40
+    :int-packed-2-start 0x40
+    :int-packed-2-zero  0x50
+    :int-packed-2-end   0x60
+    :int-packed-3-start 0x60
+    :int-packed-3-zero  0x68
+    :int-packed-3-end   0x70
+    :int-packed-4-start 0x70
+    :int-packed-4-zero  0x72
+    :int-packed-4-end   0x74
+    :int-packed-5-start 0x74
+    :int-packed-5-zero  0x76
+    :int-packed-5-end   0x78
+    :int-packed-6-start 0x78
+    :int-packed-6-zero  0x7A
+    :int-packed-6-end   0x7C
+    :int-packed-7-start 0x7C
+    :int-packed-7-zero  0x7E
+    :int-packed-7-end   0x80})
+
+(defrecord TaggedObject [tag value meta])
