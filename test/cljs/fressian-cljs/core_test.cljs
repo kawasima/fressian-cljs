@@ -13,3 +13,9 @@
     (let [obj (fress/read buf)]
       (is {:abc "ABC"} obj)
       (prn obj))))
+
+(deftest write-test
+  (let [arr (fress/write {:abc "ABC"})]
+    (dotimes [n (. arr -length)]
+      (println (.toString (bit-and (aget arr n) 0xff)  16)))
+    (prn (fress/read (. arr -buffer)))))

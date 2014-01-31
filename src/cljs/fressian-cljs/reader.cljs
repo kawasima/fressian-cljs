@@ -1,10 +1,16 @@
 (ns fressian-cljs.reader
   (:use [fressian-cljs.defs :only [codes TaggedObject]]
-        [fressian-cljs.fns :only [read-utf8-chars expected lookup]])
+        [fressian-cljs.fns :only [ read-utf8-chars expected lookup
+                                   byte-array-to-uuid]])
   (:require [goog.string :as gstring]
             [goog.string.format]))
 
 (declare read-object)
+(declare read-int)
+(declare read-boolean)
+(declare read-float)
+(declare read-double)
+
 (declare internal-read-int)
 (declare read)
 
@@ -12,7 +18,63 @@
 
 (def priority-cache (atom nil))
 (def struct-cache (atom nil))
-(def standard-extension-hadlers (atom nil))
+(def standard-extension-hadlers
+  { "set"   (fn [r tag component-count]
+              (set (read-object r)))
+    "map"   (fn [r tag component-count]
+              (apply hash-map (read-object reader)))
+    "int[]" (fn [r tag component-count]
+              (let [ size (read-int r)
+                     result (make-array size)]
+                (doseq [n (range 0 size)]
+                  (aset result n (read-int r)))
+                result))
+    "long[]" (fn [r tag component-count]
+              (let [ size (read-int r)
+                     result (make-array size)]
+                (doseq [n (range 0 size)]
+                  (aset result n (read-int r)))
+                result))
+    "boolean[]" (fn [reader tag component-count]
+                  (let [ size (read-int r)
+                         result (make-array size)]
+                    (doseq [n (range 0 size)]
+                      (aset result n (read-boolean r)))
+                    result))
+    "float[]" (fn [r tag component-count]
+                (let [ size (read-int r)
+                       result (make-array size)]
+                  (doseq [n (range 0 size)]
+                    (aset result n (read-float r)))
+                  result))
+    "double[]" (fn [r tag component-count]
+                 (let [ size (read-int r)
+                        result (make-array size)]
+                   (doseq [n (range 0 size)]
+                     (aset result n (read-double r)))
+                   result))
+    "Object[]" (fn [r tag component-count]
+                 (let [ size (read-int r)
+                        result (make-array size)]
+                   (doseq [n (range 0 size)]
+                     (aset result n (read-object r)))
+                   result))
+    "uuid"     (fn [r tag component-count]
+                 (let [buf (read-object r)]
+                   (when-not (= (count buf) 16)
+                     (throw (str "Invalid uuid buffer size: " (count buf))))
+                   (byte-array-to-uuid buf)))
+    "regex"    (fn [r tag component-count]
+                   (re-pattern (read-object r)))
+    "uri"      (fn [r tag component-count]
+                 (read-object r))
+    "bigint"   (fn [r tag component-count]
+                 ())
+    "bigdec"   (fn [r tag component-count]
+                 ())
+    "inst"     (fn [r tag component-count]
+                 (js/Date (read-int r)))
+    })
 
 (def core-handlers
   {:list #(apply list %)

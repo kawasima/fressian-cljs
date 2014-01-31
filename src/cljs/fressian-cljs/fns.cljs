@@ -51,4 +51,35 @@
            :default (throw (gstring/format "Invalid UTF-8: %d" ch))))))
     (.apply (.-fromCharCode js/String) nil buf)))
 
+(defn utf8-encoding-size [ch]
+  (cond
+    (<= ch 0x007F) 1
+    (>  ch 0x07FF) 2
+    :default 3))
+
+(defn buffer-string-chunk-utf8 [s start buf]
+  (loop [ string-pos start
+          buffer-pos 0]
+    (if (< string-pos (. s -length))
+      (let [ ch (.charCodeAt s string-pos)
+             encoding-size (utf8-encoding-size ch)]
+        (if (<= (+ buffer-pos encoding-size) (. buf -length))
+          (do
+            (case encoding-size
+              1 (aset buf buffer-pos ch)
+              2 (do
+                  (aset buf buffer-pos
+                    (bit-or 0xC0 (bit-and (bit-shift-right ch 6) 0x1F)))
+                  (aset buf (inc buffer-pos)
+                    (bit-or 0x80 (bit-and (bit-shift-right ch 0) 0x3F))))
+              3 (do
+                  (aset buf buffer-pos
+                    (bit-or 0xE0 (bit-and (bit-shift-right ch 12) 0x0F)))
+                  (aset buf (inc buffer-pos)
+                    (bit-or 0x80 (bit-and (bit-shift-right ch 6) 0x3F)))
+                  (aset buf (+ buffer-pos 2)
+                    (bit-or 0x80 (bit-and (bit-shift-right ch 0) 0x3F)))))
+            (recur (inc string-pos) (+ buffer-pos encoding-size)))
+          [string-pos buffer-pos]))
+      [string-pos buffer-pos])))
 

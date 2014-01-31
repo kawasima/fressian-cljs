@@ -74,4 +74,68 @@
     :int-packed-7-zero  0x7E
     :int-packed-7-end   0x80})
 
+(def ranges
+  { :packed-1-start     1
+    :packed-1-end       64
+    :packed-2-start     (js/parseInt "0xFFFFFFFFFFFFF000") 
+    :packed-2-end       (js/parseInt "0x0000000000001000")
+    :packed-3-start     (js/parseInt "0xFFFFFFFFFFF80000")
+    :packed-3-end       (js/parseInt "0x0000000000080000")
+    :packed-4-start     (js/parseInt "0xFFFFFFFFFE000000")
+    :packed-4-end       (js/parseInt "0x0000000002000000")
+    :packed-5-start     (js/parseInt "0xFFFFFFFE00000000")
+    :packed-5-end       (js/parseInt "0x0000000200000000")
+    :packed-6-start     (js/parseInt "0xFFFFFE0000000000")
+    :packed-6-end       (js/parseInt "0x0000020000000000")
+    :packed-7-start     (js/parseInt "0xFFFE000000000000")
+    :packed-7-end       (js/parseInt "0x0002000000000000")
+
+    :priority-cache-packed-end 32
+    :struct-cache-packed-end   16
+    :bytes-packed-length-end   8
+    :sting-packed-length-end   8
+    :list-packed-length-end    8
+
+    :byte-chunk-size    65535})
+
+(def tag-to-code
+  { "map"      (codes :map)
+    "set"      (codes :set)
+    "uuid"     (codes :uuid)
+    "regex"    (codes :regex)
+    "uri"      (codes :uri)
+    "bigint"   (codes :bigint)
+    "bigdec"   (codes :bigdec)
+    "inst"     (codes :inst)
+    "sym"      (codes :sym)
+    "key"      (codes :key)
+    "int[]"    (codes :int-array)
+    "float[]"  (codes :float-array)
+    "double[]" (codes :double-array)
+    "long[]"   (codes :long-array)
+    "boolean[]" (codes :boolean-array)
+    "Object[]" (codes :object-array)})
+
 (defrecord TaggedObject [tag value meta])
+
+(defprotocol InterleavedIndexHoppable
+  (old-index [this k]))
+
+(defrecord InterleavedIndexHopMap [ks hash-indexes]
+  InterleavedIndexHoppable
+  (old-index [_ k]
+    (let [h (hash k)]
+      (if-let [idx (get @hash-indexes h)]
+        idx
+        (do (swap! ks conj k)
+            (swap! hash-indexes assoc h (dec (count @ks)))
+            -1)))))
+
+(defn create-interleaved-index-hop-map
+  ([] (create-interleaved-index-hop-map 1024))
+  ([capacity]
+    (let [cap capacity]
+      (->InterleavedIndexHopMap
+        (atom [])
+        (atom {})))))
+
