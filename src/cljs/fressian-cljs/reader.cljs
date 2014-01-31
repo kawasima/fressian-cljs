@@ -22,7 +22,7 @@
   { "set"   (fn [r tag component-count]
               (set (read-object r)))
     "map"   (fn [r tag component-count]
-              (apply hash-map (read-object reader)))
+              (apply hash-map (read-object r)))
     "int[]" (fn [r tag component-count]
               (let [ size (read-int r)
                      result (make-array size)]
@@ -35,7 +35,7 @@
                 (doseq [n (range 0 size)]
                   (aset result n (read-int r)))
                 result))
-    "boolean[]" (fn [reader tag component-count]
+    "boolean[]" (fn [r tag component-count]
                   (let [ size (read-int r)
                          result (make-array size)]
                     (doseq [n (range 0 size)]
@@ -61,7 +61,7 @@
                    result))
     "uuid"     (fn [r tag component-count]
                  (let [buf (read-object r)]
-                   (when-not (= (count buf) 16)
+                   (when-not (= (. buf -length) 16)
                      (throw (str "Invalid uuid buffer size: " (count buf))))
                    (byte-array-to-uuid buf)))
     "regex"    (fn [r tag component-count]
@@ -90,8 +90,8 @@
     o))
 
 (defn- lookup-cache [cache index]
-  (if (< index (count cache))
-    (let [result (nth cache index)]
+  (if (< index (count @cache))
+    (let [result (nth @cache index)]
       (if (= result under-construction)
         (throw "Unable to resolve circular reference in cache")
         result))
@@ -117,7 +117,7 @@
     (aget code 0)))
 
 (defn read-fully [reader length]
-  (let [buf (js/Uint8Array. (:buffer @reader) (:index @reader) length)]
+  (let [buf (js/Int8Array. (:buffer @reader) (:index @reader) length)]
     (swap! reader update-in [:index] + length)
     buf))
 
@@ -252,7 +252,7 @@
 
 (defn- handle-struct [reader tag fields]
   (if-let [h (or (get (get @reader :handlers) tag)
-                 (get @standard-extension-hadlers tag))]
+                 (get standard-extension-hadlers tag))]
     (h reader tag fields)
     (TaggedObject. tag (read-objects reader fields) nil)))
 

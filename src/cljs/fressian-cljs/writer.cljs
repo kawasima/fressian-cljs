@@ -2,7 +2,7 @@
   (:use [fressian-cljs.defs :only [codes ranges tag-to-code TaggedObject
                                    create-interleaved-index-hop-map old-index]]
         [fressian-cljs.fns :only [read-utf8-chars expected lookup
-                                  buffer-string-chunk-utf8 ]])
+                                  buffer-string-chunk-utf8 uuid-to-byte-array]])
   (:require [goog.string :as gstring]
             [goog.string.format]))
 
@@ -128,36 +128,37 @@
   (- 64 (.-length (.toString (if (< l 0) ~l l) 2))))
 
 (defn write-int [wtr n]
-  (cond (bit-switch n)
-    (<= 1 14)  (do (write-code wtr (codes :int))
-                 (write-raw-int64 wtr n))
+  (let [s (bit-switch n)]
+    (cond
+      (<=  1 s 14) (do (write-code wtr (codes :int))
+                      (write-raw-int64 wtr n))
 
-    (<= 15 22) (do (write-raw-byte wtr (+ (codes :int-packed-7-zero)
-                                         (/ n (.pow js/Math 2 48))))
-                 (write-raw-int48 wtr n))
+      (<= 15 s 22) (do (write-raw-byte wtr (+ (codes :int-packed-7-zero)
+                                             (/ n (.pow js/Math 2 48))))
+                     (write-raw-int48 wtr n))
 
-    (<= 23 30) (do (write-raw-byte wtr (+ (codes :int-packed-6-zero)
-                                         (/ n (.pow js/Math 2 40))))
-                 (write-raw-int40 wtr n))
+      (<= 23 s 30) (do (write-raw-byte wtr (+ (codes :int-packed-6-zero)
+                                             (/ n (.pow js/Math 2 40))))
+                     (write-raw-int40 wtr n))
 
-    (<= 31 38) (do (write-raw-byte wtr (+ (codes :int-packed-5-zero)
-                                         (/ n (.pow js/Math 2 32))))
-                 (write-raw-int32 wtr n))n
+      (<= 31 s 38) (do (write-raw-byte wtr (+ (codes :int-packed-5-zero)
+                                             (/ n (.pow js/Math 2 32))))
+                     (write-raw-int32 wtr n))
 
-    (<= 39 44) (do (write-raw-byte wtr (+ (codes :int-packed-4-zero)
-                                         (bit-shift-right n 24)))
-                 (write-raw-int24 wtr n))
-    (<= 45 51) (do (write-raw-byte wtr (+ (codes :int-packed-3-zero)
-                                         (bit-shift-right n 16)))
-                 (write-raw-int16 wtr n))
-    (<= 52 57) (do (write-raw-byte wtr (+ (codes :int-packed-2-zero)
-                                         (bit-shift-right n 8)))
-                 (write-raw-byte wtr n))
-    (<= 58 64) (do (when (< n -1)
-                     (write-raw-byte wtr (+ (codes :int-packed_2_zero)
-                                           (bit-shift-right n 8))))
-                 (write-raw-byte wtr n))
-    :default (throw "more than 64 bits in a long!")))
+      (<= 39 s 44) (do (write-raw-byte wtr (+ (codes :int-packed-4-zero)
+                                             (bit-shift-right n 24)))
+                     (write-raw-int24 wtr n))
+      (<= 45 s 51) (do (write-raw-byte wtr (+ (codes :int-packed-3-zero)
+                                             (bit-shift-right n 16)))
+                     (write-raw-int16 wtr n))
+      (<= 52 s 57) (do (write-raw-byte wtr (+ (codes :int-packed-2-zero)
+                                             (bit-shift-right n 8)))
+                     (write-raw-byte wtr n))
+      (<= 58 s 64) (do (when (< n -1)
+                         (write-raw-byte wtr (+ (codes :int-packed_2_zero)
+                                               (bit-shift-right n 8))))
+                     (write-raw-byte wtr n))
+      :default (throw "more than 64 bits in a long!"))))
 
 (defn write-float [wtr f]
   (write-code wtr (codes :float))
@@ -193,6 +194,24 @@
         (recur (buffer-string-chunk-utf8 s string-pos string-buffer)))))
   wtr)
 
+(defn write-bytes
+  ([wtr b] (write-bytes wtr b 0 (. b -length)))
+  ([wtr b offset length]
+    (if (< length (ranges :bytes-packed-length-end))
+      (do (write-raw-byte wtr (+ (codes :bytes-packed-length-start) length))
+          (write-raw-bytes wtr b offset length))
+      (loop [len length off offset]
+        (if (> len (ranges :byte-chunk-size))
+          (do (write-code wtr (codes :bytes-chunk))
+              (write-count wtr (ranges :byte-chunk-size))
+              (write-raw-bytes wtr b off (ranges :byte-chunk-size))
+              (recur (- len (ranges :byte-chunk-size))
+                     (+ off (ranges :byte-chunk-size))))
+          (do (write-code wtr (codes :bytes))
+              (write-count wtr len)
+              (write-raw-bytes wtr b off len)))))
+    wtr))
+
 (defn write-list [wtr l]
   (let [length (count l)]
     (if (< length (ranges :list-packed-length-end))
@@ -206,6 +225,10 @@
 (defn write-map [wtr m]
   (write-tag wtr "map" 1)
   (write-list wtr (flatten (seq m))))
+
+(defn write-set [wtr s]
+  (write-tag wtr "set" 1)
+  (write-list wtr (seq s)))
 
 (defn- clear-caches [wtr])
 
@@ -261,13 +284,16 @@
   (write-map wtr m))
 
 ;; Vector
-(defmethod internal-write cljs.core/PersistentVector [wtr v])
+(defmethod internal-write cljs.core/PersistentVector [wtr v]
+  (write-list wtr v))
 
 ;; Sequence
-(defmethod internal-write cljs.core/ChunkedSeq [wtr s])
+(defmethod internal-write cljs.core/ChunkedSeq [wtr s]
+  (write-list wtr s))
 
 ;; Set
-(defmethod internal-write cljs.core/PersistentHashSet [wtr s])
+(defmethod internal-write cljs.core/PersistentHashSet [wtr s]
+  (write-set wtr s))
 
 ;; Keyword
 (defmethod internal-write cljs.core/Keyword [wtr k]
@@ -276,6 +302,11 @@
 ;; Symbol
 (defmethod internal-write cljs.core/Symbol [wtr s]
   (write-named "sym" wtr s))
+
+;; UUID
+(defmethod internal-write cljs.core/UUID [wtr uuid]
+  (write-tag wtr "uuid" 1)
+  (write-bytes wtr (js/Int8Array. (uuid-to-byte-array uuid))))
 
 ;; Null
 (defmethod internal-write nil [wtr null-ref]

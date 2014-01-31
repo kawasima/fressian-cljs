@@ -15,12 +15,24 @@
       (let [token (->> buf
                        (drop @offset)
                        (take n)
-                       (map #(-> % (+ 0x100)
+                       (map #(-> (js/Uint8Array. (int-array [%]))
+                                 (aget 0)
+                                 (+ 0x100)
                                  (.toString 16)
                                  (.substr 1)))
                        (apply str))]
         (swap! offset #(+ n %))
         token))))
+
+(defn parse [s]
+  (let [buf (make-array 16)
+        idx (atom 0)]
+    (clojure.string/replace (.toLowerCase s) #"[0-9a-f]{2}"
+      (fn [oct]
+        (when (< @idx 16)
+          (aset buf @idx (js/parseInt (str "0x" oct)))
+          (swap! idx inc))))
+    buf))
 
 (defn v1 []
   (->> (rng)

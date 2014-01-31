@@ -93,7 +93,7 @@
     :priority-cache-packed-end 32
     :struct-cache-packed-end   16
     :bytes-packed-length-end   8
-    :sting-packed-length-end   8
+    :string-packed-length-end   8
     :list-packed-length-end    8
 
     :byte-chunk-size    65535})

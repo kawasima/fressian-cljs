@@ -9,21 +9,22 @@
   ([expected ch got]
    (throw (gstring/format "expected %s at %d, got %s" expected ch got))))
 
+(defn uuid-to-byte-array [uuid]
+  (uuid/parse (.-uuid uuid)))
 
-(defn solo-entry [m]
-  (if (and (map? m) (= (count m) 1))
-    (first m)))
+(defn- create-array-from-typed [array-buffer-view]
+  (let [arr (make-array (. array-buffer-view -length))]
+    (dotimes [n (count arr)]
+      (aset arr n (aget array-buffer-view n)))
+    arr))
 
-
-(defn solo-key [m]
-  (first (solo-entry m)))
-
-(defn solo-val [m]
-  (last (solo-entry m)))
-
-(defn solo-map [k v]
-  {k v})
-
+(defn byte-array-to-uuid [bytes]
+  (let [b-array (if (instance? js/Int8Array bytes)
+                  (create-array-from-typed bytes)
+                  bytes)]
+    (->> (uuid/unparse b-array)
+       (clojure.string/join "-")
+       (UUID.))))
 
 (defn read-utf8-chars [source offset length]
   (let [buf (js/Array.)]
