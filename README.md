@@ -1,5 +1,5 @@
-fressian-cljs
-=============
+# fressian-cljs [![Travis CI status](https://secure.travis-ci.org/kawasima/fressian-cljs.png)](http://travis-ci.org/#!/kawasima/fressian-cljs/builds)
+
 
 Read and write fressian data by clojurescript.
 
