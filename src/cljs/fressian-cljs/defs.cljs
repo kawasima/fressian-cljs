@@ -118,6 +118,8 @@
 
 (defrecord TaggedObject [tag value meta])
 
+(defrecord StructType [tag fields])
+
 (defprotocol InterleavedIndexHoppable
   (old-index [this k]))
 

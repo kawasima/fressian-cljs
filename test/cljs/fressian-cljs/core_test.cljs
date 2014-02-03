@@ -41,11 +41,11 @@
 
 (deftest complex-fress
   (let [ complex-obj {:map {:a 1 :b "B"} :set #{[1 2 3] "4"} :array (into-array ["Java" "script"])}
-         arr (fress/write complex-obj)
-         obj (fress/read (. arr -buffer))]
+         arr (fress/write complex-obj)]
     (print-buf arr)
-    (prn obj)
-    (is (= complex-obj obj))))
+    (let [obj (fress/read (. arr -buffer))]
+      (prn obj)
+      (is (= {:map {:a 1 :b "B"} :set #{[1 2 3] "4"} :array '("Java" "script")} obj)))))
 
 (deftest uuid-fress
   (let [ arr (fress/write (UUID. "550e8400-e29b-41d4-a716-446655440000"))

@@ -1,5 +1,5 @@
 (ns fressian-cljs.reader
-  (:use [fressian-cljs.defs :only [codes TaggedObject]]
+  (:use [fressian-cljs.defs :only [codes TaggedObject StructType]]
         [fressian-cljs.fns :only [ read-utf8-chars expected lookup
                                    byte-array-to-uuid]])
   (:require [goog.string :as gstring]
@@ -14,10 +14,8 @@
 (declare internal-read-int)
 (declare read)
 
-(defrecord FressianReader [buffer index handlers])
+(defrecord FressianReader [buffer index handlers priority-cache struct-cache])
 
-(def priority-cache (atom nil))
-(def struct-cache (atom nil))
 (def standard-extension-hadlers
   { "set"   (fn [r tag component-count]
               (set (read-object r)))
@@ -84,32 +82,22 @@
 
 (def under-construction (js/Object.))
 
-(defn- read-and-cache-object [reader cache]
+(defn- read-and-cache-object [reader]
   (let [o (read-object reader)]
-    (swap! cache conj o)
+    (swap! reader update-in [:priority-cache] conj o)
     o))
 
 (defn- lookup-cache [cache index]
-  (if (< index (count @cache))
-    (let [result (nth @cache index)]
+  (if (< index (count cache))
+    (let [result (nth cache index)]
       (if (= result under-construction)
         (throw "Unable to resolve circular reference in cache")
         result))
     (throw (str "Requested object beyond end of cache at " index))))
 
-(defn- get-priority-cache []
-  (when (nil? @priority-cache)
-    (reset! priority-cache []))
-  priority-cache)
-
-(defn- get-struct-cache []
-  (when (nil? (@struct-cache))
-    (reset! struct-cache []))
-  struct-cache)
-
-(defn- reset-caches []
-  (reset! priority-cache nil)
-  (reset! struct-cache nil))
+(defn- reset-caches [reader]
+  (swap! reader assoc :priority-cache nil)
+  (swap! reader assoc :struct-cache nil))
 
 (defn- read-next-code [reader]
   (let [code (js/Uint8Array. (:buffer @reader) (:index @reader) 1)]
@@ -262,7 +250,7 @@
   (let [length-from-stream (read-raw-int32 reader)]
     (when-not (= length length-from-stream)
       (throw (gstring/format "Invalid footer length, expected %d got %d" length length-from-stream))))
-  (reset-caches))
+  (reset-caches reader))
 
 (defn- read [reader code]
   (cond
@@ -280,15 +268,15 @@
                                (read-raw-int40 reader))
    (<= 0x7C code 0x7F) (bit-or (bit-shift-left (- code (codes :int-packed-7-zero)) 48)
                                (read-raw-int48 reader))
-   (= code (codes :put-priority-cache)) (read-and-cache-object reader (get-priority-cache))
-   (= code (codes :get-priority-cache)) (lookup-cache (get-priority-cache) (read-int32 reader))
+   (= code (codes :put-priority-cache)) (read-and-cache-object reader)
+   (= code (codes :get-priority-cache)) (lookup-cache (:priority-cache @reader) (read-int32 reader))
 
    (<= (codes :priority-cache-packed-start) code (+ (codes :priority-cache-packed-start) 31))
-   (lookup-cache (get-priority-cache) (- code (codes :priority-cache-packed-start)))
+   (lookup-cache (:priority-cache @reader) (- code (codes :priority-cache-packed-start)))
 
    (<= (codes :struct-cache-packed-start) code (+ (codes :struct-cache-packed-start) 15))
-   (let [st (lookup-cache (get-priority-cache) (- code (codes :struct-cache-packed-start)))]
-     (handle-struct reader (st :tag) (st :fields)))
+   (let [st (lookup-cache (:priority-cache @reader) (- code (codes :struct-cache-packed-start)))]
+     (handle-struct reader (:tag st) (:fields st)))
 
    (= code (codes :map)) (handle-struct reader "map" 1)
    (= code (codes :set)) (handle-struct reader "set" 1)
@@ -344,11 +332,16 @@
    (= code (codes :structtype))
    (let [tag (read-object reader)
          fields (read-int32 reader)]
+     (swap! reader update-in [:struct-cache] conj (StructType. tag fields))
      (handle-struct reader tag fields))
+
+   (= code (codes :struct))
+   (let [st (lookup-cache (:struct-cache @reader) (read-int32 reader))]
+     (handle-struct reader (:tag st) (:fields st)))
 
    (= code (codes :reset-caches))
    (do
-     (reset-caches)
+     (reset-caches reader)
      (read-object reader))
 
    :default (throw (expected "any" code))))

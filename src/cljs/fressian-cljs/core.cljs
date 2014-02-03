@@ -1,9 +1,9 @@
 (ns fressian-cljs.core
   (:require [clojure.string :as string])
   (:use [fressian-cljs.reader :only [read-object FressianReader]]
-        [fressian-cljs.writer :only [write-object FressianWriter write-tag write-footer]]
+        [fressian-cljs.writer :only [write-object FressianWriter write-tag write-footer write-list]]
         [fressian-cljs.adler32 :only [make-adler32]]
-        [fressian-cljs.defs :only [TaggedObject]]))
+        [fressian-cljs.defs :only [TaggedObject create-interleaved-index-hop-map]]))
 
 (defn- record-map-constructor-name
   "Return the map constructor for a record"
@@ -40,12 +40,24 @@
 
     "map"    (fn [reader tag component-count]
               (let [kvs (read-object reader)]
-                (apply hash-map kvs)))})
+                (apply hash-map kvs)))
+
+    "vec"    (fn [reader tag component-count]
+               (vec (read-object reader)))})
+
+(def cljs-write-handler
+  { cljs.core/PersistentVector
+    { "vec"
+      (fn [wtr v]
+        (write-tag wtr "vec" 1)
+        (write-list wtr (seq v)))}})
 
 (defmulti create-reader type)
 (defmethod create-reader js/ArrayBuffer [buf & {:keys [handlers]}]
   (atom (FressianReader. buf 0
-    (or handlers cljs-read-handler))))
+          (or handlers cljs-read-handler)
+          []
+          [])))
 
 (defmethod create-reader js/Blob [buf & {:keys [handlers]}]
   (throw "Blob FressianReader has been implemented yet."))
@@ -53,10 +65,12 @@
 (defn read [readable & options]
   (read-object (apply create-reader readable options)))
 
-
 (defn create-writer [& {:keys [handlers]}]
   (let [buffer (js/ArrayBuffer. 65536)]
-    (atom (FressianWriter. buffer 0 handlers (make-adler32)))))
+    (atom (FressianWriter. buffer 0
+            (or handlers cljs-write-handler) (make-adler32)
+            (create-interleaved-index-hop-map 16)
+            (create-interleaved-index-hop-map 16)))))
 
 (defn ^js/Int8Array write [obj & options]
   (let [{:keys [footer?]} (when options (apply hash-map options))

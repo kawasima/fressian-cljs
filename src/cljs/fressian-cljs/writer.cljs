@@ -1,18 +1,15 @@
 (ns fressian-cljs.writer
   (:use [fressian-cljs.defs :only [codes ranges tag-to-code TaggedObject
-                                   create-interleaved-index-hop-map old-index]]
+                                   old-index]]
         [fressian-cljs.fns :only [read-utf8-chars expected lookup
                                   buffer-string-chunk-utf8 uuid-to-byte-array]])
   (:require [goog.string :as gstring]
             [goog.string.format]
             [fressian-cljs.adler32 :as adler32]))
 
-(defrecord FressianWriter [buffer index handlers checksum])
+(defrecord FressianWriter [buffer index handlers checksum priority-cache struct-cache])
 
 (declare write-object write-tag write-int)
-
-(def priority-cache (create-interleaved-index-hop-map 16))
-(def struct-cache   (create-interleaved-index-hop-map 16))
 
 (defn notify-bytes-written [wtr cnt]
   (swap! wtr update-in [:index] + cnt))
@@ -40,7 +37,7 @@
 (defn- write-tag [wtr tag component-count]
   (if-let [shortcut-code (tag-to-code tag)]
     (write-code wtr shortcut-code)
-    (let [index (old-index struct-cache tag)]
+    (let [index (old-index (:struct-cache @wtr) tag)]
       (cond
         (= index -1) (do (write-code wtr (codes :structtype))
                          (write-object wtr tag)
@@ -329,7 +326,7 @@
   (if cache?
     (if (should-skip-cache? o)
       (do-write wtr tag o handler false)
-      (let [index (old-index priority-cache o)]
+      (let [index (old-index (:priority-cache @wtr) o)]
         (if (= index -1)
           (do (write-code wtr (codes :put-priority-cache))
               (do-write wtr tag o handler false))
@@ -339,11 +336,18 @@
                 (write-int wtr index))))))
     (handler wtr o)))
 
+(defn- lookup-handler [wtr tag o]
+  (if tag
+    (get-in @wtr [:handlers (type o) tag])
+    (some-> (get-in @wtr [:handlers (type o)])
+            (first)
+            (val))))
+
 (defn write-as
   ([wtr tag o]
     (write-as wtr nil o false))
   ([wtr tag o cache?]
-    (let [handler (get-method internal-write (type o))]
+    (let [handler (or (lookup-handler wtr tag o) (get-method internal-write (type o)))]
       (do-write wtr tag o handler cache?))))
 
 (defn write-object
