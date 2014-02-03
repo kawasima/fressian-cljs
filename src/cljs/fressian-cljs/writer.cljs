@@ -4,9 +4,10 @@
         [fressian-cljs.fns :only [read-utf8-chars expected lookup
                                   buffer-string-chunk-utf8 uuid-to-byte-array]])
   (:require [goog.string :as gstring]
-            [goog.string.format]))
+            [goog.string.format]
+            [fressian-cljs.adler32 :as adler32]))
 
-(defrecord FressianWriter [buffer index handlers])
+(defrecord FressianWriter [buffer index handlers checksum])
 
 (declare write-object write-tag write-int)
 
@@ -18,14 +19,20 @@
 
 (defn write-raw-byte [wtr b]
   (aset (js/Int8Array. (:buffer @wtr)) (:index @wtr) b)
+  (adler32/update! (:checksum @wtr) b)
   (notify-bytes-written wtr 1)
   wtr)
 
 (defn write-raw-bytes [wtr b off len]
   (let [i8array (js/Int8Array. (:buffer @wtr))]
     (.set i8array (.subarray b off (+ off len)) (:index @wtr))
+    (adler32/update! (:checksum @wtr) b off len)
     (notify-bytes-written wtr len)
     wtr))
+
+(defn reset [wtr]
+  (swap! wtr assoc-in [:index] 0)
+  (adler32/reset (:checksum @wtr)))
 
 (defn write-code [wtr code]
   (write-raw-byte wtr code))

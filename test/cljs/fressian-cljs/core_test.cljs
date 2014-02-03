@@ -12,7 +12,7 @@
 (deftest read-test
   (let [ buf (js/ArrayBuffer. 13)
          arr (js/Uint8Array. buf)
-         fress-data [ 0xc0 0xe6 0xca 0xf7 0xcd ;; {:ABC "abc"}
+         fress-data [ 0xc0 0xe6 0xca 0xf7 0xcd ;; {:abc "ABC"}
                       0xdd 0x61 0x62 0x63 0xdd 0x41 0x42 0x43]]
     (doall (map-indexed #(aset arr %1 %2) fress-data))
     (let [obj (fress/read buf)]
@@ -22,7 +22,8 @@
 (deftest write-test
   (let [arr (fress/write {:abc "ABC"})]
     (print-buf arr)
-    (prn (fress/read (. arr -buffer)))))
+    (prn (fress/read (. arr -buffer)))
+    (is (= {:abc "ABC"} (fress/read (. arr -buffer))))))
 
 (deftest list-fress
   (let [ arr (fress/write [:a :b :c])

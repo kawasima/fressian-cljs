@@ -1,7 +1,8 @@
 (ns fressian-cljs.core
   (:require [clojure.string :as string])
   (:use [fressian-cljs.reader :only [read-object FressianReader]]
-        [fressian-cljs.writer :only [write-object FressianWriter write-tag]]
+        [fressian-cljs.writer :only [write-object FressianWriter write-tag write-footer]]
+        [fressian-cljs.adler32 :only [make-adler32]]
         [fressian-cljs.defs :only [TaggedObject]]))
 
 (defn- record-map-constructor-name
@@ -55,7 +56,7 @@
 
 (defn create-writer [& {:keys [handlers]}]
   (let [buffer (js/ArrayBuffer. 65536)]
-    (atom (FressianWriter. buffer 0 handlers))))
+    (atom (FressianWriter. buffer 0 handlers (make-adler32)))))
 
 (defn ^js/Int8Array write [obj & options]
   (let [{:keys [footer?]} (when options (apply hash-map options))
