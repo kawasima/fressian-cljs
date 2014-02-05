@@ -1,6 +1,6 @@
 (ns fressian-cljs.core-test
   (:require-macros [cemerick.cljs.test
-                     :refer (is deftest with-test run-tests testing test-var)])
+                     :refer (is deftest with-test run-tests testing)])
   (:require [cemerick.cljs.test :as t]
             [fressian-cljs.core :as fress]))
 
@@ -53,3 +53,42 @@
     (print-buf arr)
     (prn obj)
     (is (= (UUID. "550e8400-e29b-41d4-a716-446655440000") obj))))
+
+(deftest js-object-fress
+  (let [ arr (fress/write (clj->js {:name "kawasima" :age 15}))
+         obj (fress/read (. arr -buffer))]
+    (print-buf arr)
+    (prn obj)
+    (is (= {"name" "kawasima", "age" 15} obj))))
+
+(deftest js-date-fress
+  (let [ d   (js/Date.)
+         arr (fress/write d)
+         obj (fress/read (. arr -buffer))]
+    (print-buf arr)
+    (prn obj)
+    (is (= d obj))))
+
+(deftest number-fress
+  (let [nums [1234567890123 3.1415926 -987654321]
+        arr  (fress/write nums)
+        obj  (fress/read (. arr -buffer))]
+    (print-buf arr)
+    (prn obj)
+    (is (= (first nums) (first obj)))
+    (is (= (last  nums) (last  obj)))
+    (is (< (.abs js/Math (- (nth nums 1) (nth obj 1))) 0.01))))
+
+(deftest boolean-fress
+  (let [bools [true false nil]
+        arr   (fress/write bools)
+        obj   (fress/read (. arr -buffer))]
+    (print-buf arr)
+    (prn obj)
+    (is (= bools obj))))
+
+(defrecord Member [fname lname])
+(deftest record-fress
+  (is (thrown-with-msg? js/Error #"Cannot write" (fress/write (Member. "Yoshitaka" "Kawashima")))))
+
+

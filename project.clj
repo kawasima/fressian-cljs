@@ -1,10 +1,10 @@
-(defproject net.unit8/fressian-cljs "0.1.0-SNAPSHOT"
-  :dependencies [[org.clojure/clojurescript "0.0-2138"]]
-  :plugins [ [lein-cljsbuild "1.0.1"]
-             [com.cemerick/clojurescript.test "0.2.2"]]
+(defproject net.unit8/fressian-cljs "0.1.0"
+  :dependencies [[org.clojure/clojurescript "0.0-2156"]]
+  :plugins [[lein-cljsbuild "1.0.2"]
+            [com.cemerick/clojurescript.test "0.2.2"]]
   :cljsbuild
-  { :builds
-    { :dev
+  { :builds 
+    {:dev
       { :source-paths ["src/cljs"]
         :compiler { :optimizations :whitespace
                     :output-to "target/fressian.js"}}
@@ -13,6 +13,7 @@
         :compiler { :optimizations :whitespace
                     :output-to "target/cljs/testable.js"
                     :pretty-print true}}}
+
     :test-commands
     { "unit" ["phantomjs" :runner
                "this.literal_js_was_evaulated=true"

@@ -15,13 +15,13 @@
   (swap! wtr update-in [:index] + cnt))
 
 (defn write-raw-byte [wtr b]
-  (aset (js/Int8Array. (:buffer @wtr)) (:index @wtr) b)
+  (aset (js/Uint8Array. (:buffer @wtr)) (:index @wtr) b)
   (adler32/update! (:checksum @wtr) b)
   (notify-bytes-written wtr 1)
   wtr)
 
 (defn write-raw-bytes [wtr b off len]
-  (let [i8array (js/Int8Array. (:buffer @wtr))]
+  (let [i8array (js/Uint8Array. (:buffer @wtr))]
     (.set i8array (.subarray b off (+ off len)) (:index @wtr))
     (adler32/update! (:checksum @wtr) b off len)
     (notify-bytes-written wtr len)
@@ -49,6 +49,9 @@
                      (write-int wtr index)))))
   wtr)
 
+(defn- >>> [n s]
+  (.floor js/Math (/ n (.pow js/Math 2 s))))
+
 (defn- write-named [tag wtr s]
   (write-tag wtr tag 2)
   (write-object wtr (namespace s) true)
@@ -56,51 +59,51 @@
 
 (defn write-raw-int16 [wtr s]
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right s 8) 0xFF))
+    (bit-and (>>> s 8) 0xFF))
   (write-raw-byte wtr
     (bit-and s 0xFF)))
 
 (defn write-raw-int24 [wtr i]
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 16) 0xFF))
+    (bit-and (>>> i 16) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 8) 0xFF))
+    (bit-and (>>> i 8) 0xFF))
   (write-raw-byte wtr
     (bit-and i 0xFF)))
 
 (defn write-raw-int32 [wtr i]
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 24) 0xFF))
+    (bit-and (>>> i 24) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 16) 0xFF))
+    (bit-and (>>> i 16) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 8) 0xFF))
+    (bit-and (>>> i 8) 0xFF))
   (write-raw-byte wtr
     (bit-and i 0xFF)))
 
 (defn write-raw-int40 [wtr i]
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 32) 0xFF))
+    (bit-and (>>> i 32) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 24) 0xFF))
+    (bit-and (>>> i 24) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 16) 0xFF))
+    (bit-and (>>> i 16) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 8) 0xFF))
+    (bit-and (>>> i 8) 0xFF))
   (write-raw-byte wtr
     (bit-and i 0xFF)))
 
 (defn write-raw-int48 [wtr i]
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 40) 0xFF))
+    (bit-and (>>> i 40) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 32) 0xFF))
+    (bit-and (>>> i 32) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 24) 0xFF))
+    (bit-and (>>> i 24) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 16) 0xFF))
+    (bit-and (>>> i 16) 0xFF))
   (write-raw-byte wtr
-    (bit-and (unsigned-bit-shift-right i 8) 0xFF))
+    (bit-and (>>> i 8) 0xFF))
   (write-raw-byte wtr
     (bit-and i 0xFF)))
 
@@ -108,28 +111,27 @@
   (doall
     (for [x (range 0 8)]
       (write-raw-byte wtr
-        (unsigned-bit-shift-right i (* (- 7 x) 8)))))
+        (>>> i (* (- 7 x) 8)))))
   wtr)
 
 (defn write-raw-float [wtr f]
   (let [f32array (js/Float32Array. 1)]
     (aset f32array 0 f)
-    (let [bytes (js/Int8Array. (. f32array -buffer))]
-      (doall
-        (for [i (range 0 4)]
-          (write-raw-byte wtr (aget bytes i))))))
+    (let [bytes (js/Uint8Array. (. f32array -buffer))]
+      (dotimes [i 4]
+          (write-raw-byte wtr (aget bytes i)))))
   wtr)
 
 (defn write-raw-double [wtr f]
   (let [f64array (js/Float64Array. 1)]
     (aset f64array 0 f)
-    (let [bytes (js/Int8Array. (. f64array -buffer))]
+    (let [bytes (js/Uint8Array. (. f64array -buffer))]
       (dotimes [i 8]
           (write-raw-byte wtr (aget bytes i)))))
   wtr)
 
 (defn bit-switch [l]
-  (- 64 (.-length (.toString (if (< l 0) ~l l) 2))))
+  (- 64 (.-length (.toString (.abs js/Math l) 2))))
 
 (defn write-int [wtr n]
   (let [s (bit-switch n)]
@@ -138,31 +140,31 @@
                       (write-raw-int64 wtr n))
 
       (<= 15 s 22) (do (write-raw-byte wtr (+ (codes :int-packed-7-zero)
-                                             (/ n (.pow js/Math 2 48))))
+                                              (>>> n 48)))
                      (write-raw-int48 wtr n))
 
       (<= 23 s 30) (do (write-raw-byte wtr (+ (codes :int-packed-6-zero)
-                                             (/ n (.pow js/Math 2 40))))
+                                              (>>> n 40)))
                      (write-raw-int40 wtr n))
 
       (<= 31 s 38) (do (write-raw-byte wtr (+ (codes :int-packed-5-zero)
-                                             (/ n (.pow js/Math 2 32))))
+                                              (>>> n 32)))
                      (write-raw-int32 wtr n))
 
       (<= 39 s 44) (do (write-raw-byte wtr (+ (codes :int-packed-4-zero)
-                                             (bit-shift-right n 24)))
+                                              (>>> n 24)))
                      (write-raw-int24 wtr n))
       (<= 45 s 51) (do (write-raw-byte wtr (+ (codes :int-packed-3-zero)
-                                             (bit-shift-right n 16)))
+                                              (>>> n 16)))
                      (write-raw-int16 wtr n))
       (<= 52 s 57) (do (write-raw-byte wtr (+ (codes :int-packed-2-zero)
-                                             (bit-shift-right n 8)))
+                                              (>>> n 8)))
                      (write-raw-byte wtr n))
       (<= 58 s 64) (do (when (< n -1)
                          (write-raw-byte wtr (+ (codes :int-packed_2_zero)
-                                               (bit-shift-right n 8))))
+                                                (>>> n 8))))
                      (write-raw-byte wtr n))
-      :default (throw "more than 64 bits in a long!"))))
+      :default (throw (js/Error. "more than 64 bits in a long!")))))
 
 (defn write-float [wtr f]
   (write-code wtr (codes :float))
@@ -255,7 +257,7 @@
     ;; Integer/Long
     (= (.ceil js/Math n) n) (write-int wtr n)
     ;; Float
-    (< (.pow js/Math -126) n (.pow js/Math 128)) (write-float wtr n)
+    (< (.pow js/Math 2 -126) n (.pow js/Math 2 128)) (write-float wtr n)
     ;; Double
     :default (write-double wtr n)))
 
@@ -310,11 +312,15 @@
 ;; UUID
 (defmethod internal-write cljs.core/UUID [wtr uuid]
   (write-tag wtr "uuid" 1)
-  (write-bytes wtr (js/Int8Array. (uuid-to-byte-array uuid))))
+  (write-bytes wtr (js/Uint8Array. (uuid-to-byte-array uuid))))
 
 ;; Null
 (defmethod internal-write nil [wtr null-ref]
   (write-code wtr (codes :null)))
+
+;; Default js/Object
+(defmethod internal-write js/Object [wtr o]
+  (write-map wtr (js->clj o)))
 
 (defn- should-skip-cache? [o]
   (cond
@@ -347,8 +353,9 @@
   ([wtr tag o]
     (write-as wtr nil o false))
   ([wtr tag o cache?]
-    (let [handler (or (lookup-handler wtr tag o) (get-method internal-write (type o)))]
-      (do-write wtr tag o handler cache?))))
+    (if-let [handler (or (lookup-handler wtr tag o) (get-method internal-write (type o)))]
+      (do-write wtr tag o handler cache?)
+      (throw (js/Error. (str "Cannot write " o " as tag " tag))))))
 
 (defn write-object
   ([wtr o cache?] (write-as wtr nil o cache?))

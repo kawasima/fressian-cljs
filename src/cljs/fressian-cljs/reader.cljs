@@ -71,7 +71,10 @@
     "bigdec"   (fn [r tag component-count]
                  ())
     "inst"     (fn [r tag component-count]
-                 (js/Date (read-int r)))
+                 (let [d (js/Date.)
+                       tm (read-int r)]
+                   (.setTime d tm)
+                   d))
     })
 
 (def core-handlers
@@ -91,9 +94,9 @@
   (if (< index (count cache))
     (let [result (nth cache index)]
       (if (= result under-construction)
-        (throw "Unable to resolve circular reference in cache")
+        (throw (js/Error. "Unable to resolve circular reference in cache"))
         result))
-    (throw (str "Requested object beyond end of cache at " index))))
+    (throw (js/Error. (str "Requested object beyond end of cache at " index)))))
 
 (defn- reset-caches [reader]
   (swap! reader assoc :priority-cache nil)
@@ -105,51 +108,60 @@
     (aget code 0)))
 
 (defn read-fully [reader length]
-  (let [buf (js/Int8Array. (:buffer @reader) (:index @reader) length)]
+  (let [buf (js/Uint8Array. (:buffer @reader) (:index @reader) length)]
     (swap! reader update-in [:index] + length)
     buf))
 
 (defn read-raw-byte [reader]
-  (let [result (nth (:buffer @reader) (:index @reader))]
+  (let [result (some-> (js/Uint8Array. (:buffer @reader) (:index @reader) 1)
+                       (aget 0))]
     (if (< result 0)
-      (throw "EOF")
+      (throw (js/Error. "EOF"))
       (do
         (swap! reader update-in [:index] inc)
         result))))
+
+(defn << [x y]
+  (* x (.pow js/Math 2 y)))
 
 (defn read-raw-int8 [reader]
   (read-raw-byte reader))
 
 (defn read-raw-int16 [reader]
-  (+ (bit-shift-left (read-raw-byte reader) 8)
-     (read-raw-int8 reader)))
+  (+ (<< (read-raw-byte reader) 8)
+     (read-raw-byte reader)))
 
 (defn read-raw-int24 [reader]
-  (+ (bit-shift-left (read-raw-byte reader) 16)
-     (read-raw-int16 reader)))
+  (+ (<< (read-raw-byte reader) 16)
+     (<< (read-raw-byte reader)  8)
+     (read-raw-byte reader)))
 
 (defn read-raw-int32 [reader]
-  (+ (bit-shift-left (read-raw-byte reader) 24)
-     (read-raw-int24 reader)))
+  (+ (<< (read-raw-byte reader) 24)
+     (<< (read-raw-byte reader) 16)
+     (<< (read-raw-byte reader)  8)
+     (read-raw-byte reader)))
 
 (defn read-raw-int40 [reader]
-  (+ (bit-shift-left (read-raw-byte reader) 32)
+  (+ (<< (read-raw-byte reader) 32)
      (read-raw-int32 reader)))
 
 (defn read-raw-int48 [reader]
-  (+ (bit-shift-left (read-raw-byte reader) 40)
+  (+ (<< (read-raw-byte reader) 40)
      (read-raw-int40 reader)))
 
 (defn read-raw-int64 [reader]
-  (+ (bit-shift-left (read-raw-byte reader) 56)
-     (bit-shift-left (read-raw-byte reader) 48)
+  (+ (<< (read-raw-byte reader) 56)
+     (<< (read-raw-byte reader) 48)
      (read-raw-int48 reader)))
 
 (defn read-raw-float [reader]
-  (let [buf (js/ArrayBuffer. 4)
-        i (read-raw-int32 reader)]
-    (aset (js/Int32Array. buf) 0 i)
-    (aget (js/Float32Array. buf) 0)))
+  (let [f32buf (js/Float32Array. 1)
+        u8buf  (js/Uint8Array. (. f32buf -buffer))]
+    (dotimes [i 4]
+      (let [b (read-raw-byte reader)]
+        (aset u8buf i b)))
+    (aget f32buf 0)))
 
 (defn read-raw-double [reader]
   (let [buf (js/ArrayBuffer. 8)
@@ -169,7 +181,7 @@
     (let [o (read reader code)]
       (if (= (type o) js/Number)
         o
-        (throw (expected "double" code o))))))
+        (throw (js/Error. (expected "double" code o)))))))
 
 (defn read-boolean [reader]
   (let [code (read-next-code reader)]
@@ -179,7 +191,7 @@
       :default (let [res (read reader code)]
                  (if (= js/Boolean (type res))
                    res
-                   (throw (expected "boolean" code res)))))))
+                   (throw (js/Error. (expected "boolean" code res))))))))
 
 (defn read-int [reader]
   (internal-read-int reader))
@@ -188,7 +200,15 @@
   (let [code (read-next-code reader)]
     (internal-read-double reader code)))
 
-(defn read-float [reader])
+(defn read-float [reader]
+  (let [code (read-next-code reader)]
+    (cond
+      (= code (codes :float)) (read-raw-float reader)
+      :default (let [o (read reader code)]
+                 (if (= (type o) js/Number)
+                   o
+                   (throw (js/Error. (expected "float" code o))))))))
+
 (defn- read-int32 [reader] (read-int reader))
 (defn- read-count [reader] (read-int32 reader))
 
@@ -246,28 +266,28 @@
 
 (defn- validate-footer [reader length magic-from-stream]
   (when-not (= magic-from-stream (codes :footer-magic))
-    (throw (gstring/format "Invalid footer magic, expected %d got %d" (codes :footer-magic) magic-from-stream)))
+    (throw (js/Error. (gstring/format "Invalid footer magic, expected %d got %d" (codes :footer-magic) magic-from-stream))))
   (let [length-from-stream (read-raw-int32 reader)]
     (when-not (= length length-from-stream)
-      (throw (gstring/format "Invalid footer length, expected %d got %d" length length-from-stream))))
+      (throw (js/Error. (gstring/format "Invalid footer length, expected %d got %d" length length-from-stream)))))
   (reset-caches reader))
 
 (defn- read [reader code]
   (cond
    (= code 0xFF) -1
    (<= 0x00 code 0x3F) (bit-and code 0xFF)
-   (<= 0x40 code 0x5F) (bit-or (bit-shift-left (- code (codes :int-packed-2-zero)) 8)
-                                 (read-raw-int8 reader))
-   (<= 0x60 code 0x6F) (bit-or (bit-shift-left (- code (codes :int-packed-3-zero)) 16)
-                               (read-raw-int16 reader))
-   (<= 0x70 code 0x73) (bit-or (bit-shift-left (- code (codes :int-packed-4-zero)) 24)
-                               (read-raw-int24 reader))
-   (<= 0x74 code 0x77) (bit-or (bit-shift-left (- code (codes :int-packed-5-zero)) 32)
-                               (read-raw-int32 reader))
-   (<= 0x78 code 0x7B) (bit-or (bit-shift-left (- code (codes :int-packed-6-zero)) 40)
-                               (read-raw-int40 reader))
-   (<= 0x7C code 0x7F) (bit-or (bit-shift-left (- code (codes :int-packed-7-zero)) 48)
-                               (read-raw-int48 reader))
+   (<= 0x40 code 0x5F) (+ (<< (- code (codes :int-packed-2-zero)) 8)
+                          (read-raw-int8 reader))
+   (<= 0x60 code 0x6F) (+ (<< (- code (codes :int-packed-3-zero)) 16)
+                          (read-raw-int16 reader))
+   (<= 0x70 code 0x73) (+ (<< (- code (codes :int-packed-4-zero)) 24)
+                          (read-raw-int24 reader))
+   (<= 0x74 code 0x77) (+ (<< (- code (codes :int-packed-5-zero)) 32)
+                          (read-raw-int32 reader))
+   (<= 0x78 code 0x7B) (+ (<< (- code (codes :int-packed-6-zero)) 40)
+                          (read-raw-int40 reader))
+   (<= 0x7C code 0x7F) (+ (<< (- code (codes :int-packed-7-zero)) 48)
+                          (read-raw-int48 reader))
    (= code (codes :put-priority-cache)) (read-and-cache-object reader)
    (= code (codes :get-priority-cache)) (lookup-cache (:priority-cache @reader) (read-int32 reader))
 
@@ -344,29 +364,29 @@
      (reset-caches reader)
      (read-object reader))
 
-   :default (throw (expected "any" code))))
+   :default (throw (js/Error. (expected "any" code)))))
 
 (defn internal-read-int [reader]
   (let [code (read-next-code reader)]
     (cond
      (= code 0xFF) -1
      (<= 0x00 code 0x3F) (bit-and code 0xFF)
-     (<= 0x40 code 0x5F) (bit-or (bit-shift-left (- code (codes :int-packed-2-zero)) 8)
-                                 (read-raw-int8 reader))
-     (<= 0x60 code 0x6F) (bit-or (bit-shift-left (- code (codes :int-packed-3-zero)) 16)
+     (<= 0x40 code 0x5F) (+ (<< (- code (codes :int-packed-2-zero)) 8)
+                            (read-raw-int8 reader))
+     (<= 0x60 code 0x6F) (+ (<< (- code (codes :int-packed-3-zero)) 16)
                                  (read-raw-int16 reader))
-     (<= 0x70 code 0x73) (bit-or (bit-shift-left (- code (codes :int-packed-4-zero)) 24)
+     (<= 0x70 code 0x73) (+ (<< (- code (codes :int-packed-4-zero)) 24)
                                  (read-raw-int24 reader))
-     (<= 0x74 code 0x77) (bit-or (bit-shift-left (- code (codes :int-packed-5-zero)) 32)
+     (<= 0x74 code 0x77) (+ (<< (- code (codes :int-packed-5-zero)) 32)
                                  (read-raw-int32 reader))
-     (<= 0x78 code 0x7B) (bit-or (bit-shift-left (- code (codes :int-packed-6-zero)) 40)
+     (<= 0x78 code 0x7B) (+ (<< (- code (codes :int-packed-6-zero)) 40)
                                  (read-raw-int40 reader))
-     (<= 0x7C code 0x7F) (bit-or (bit-shift-left (- code (codes :int-packed-7-zero)) 48)
+     (<= 0x7C code 0x7F) (+ (<< (- code (codes :int-packed-7-zero)) 48)
                                  (read-raw-int48 reader))
      (= code (codes :int)) (read-raw-int64 reader)
      :default (let [o (read reader code)]
                 (if (= js/Number (type o)) o
-                  (throw (expected "int64" code o)))))))
+                  (throw (js/Error. (expected "int64" code o))))))))
 
 (defn read-object [reader]
   (read reader (read-next-code reader)))

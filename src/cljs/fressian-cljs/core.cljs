@@ -9,9 +9,9 @@
   "Return the map constructor for a record"
   [rname]
   (let [comps (string/split (str rname) #"\.")]
-    (symbol (->> (butlast comps) (map #(str/replace % "_" "-"))
-                 (string/join "."))
-            (str "map->" (last comps)))))
+    (str (->> (butlast comps) (map #(str/replace % "_" "-"))
+           (string/join "."))
+      "/map->" (last comps))))
 
 (def cljs-read-handler
   { "bigint" (fn [reader tag component-count]
@@ -21,7 +21,7 @@
     "record" (fn [reader tag component-count]
                (let [ rname (read-object reader)
                       rmap  (read-object reader)]
-                 (if-let [rcons (resolve (record-map-constructor-name rname))]
+                 (if-let [rcons (load-string (record-map-constructor-name rname))]
                    (rcons rmap)
                    (TaggedObject. "record" (into-array js/Object [rname rmap]) nil))))
 
@@ -29,8 +29,8 @@
                (.fromCharCode js/String (read-object reader)))
 
     "ratio"  (fn [reader tag component-count]
-               (/ (read-object reader)
-                 (read-object reader)))
+               (/ (js/parseInt (read-object reader))
+                 (js/parseInt  (read-object reader))))
 
     "key"    (fn [reader tag component-count]
               (keyword (read-object reader) (read-object reader)))

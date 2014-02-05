@@ -2,7 +2,7 @@
 
 (defn rng []
   (let [r (atom 0)]
-    (for [i (range 0 15)]
+    (for [i (range 0 16)]
       (do
         (if (= (bit-and i 0x03) 0)
           (reset! r (* (rand) 0x1000000000)))
@@ -34,7 +34,7 @@
           (swap! idx inc))))
     buf))
 
-(defn v1 []
+(defn v4 []
   (->> (rng)
        (map-indexed (fn [idx item]
                       (if (= idx 6)

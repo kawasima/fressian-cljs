@@ -19,7 +19,7 @@
     arr))
 
 (defn byte-array-to-uuid [bytes]
-  (let [b-array (if (instance? js/Int8Array bytes)
+  (let [b-array (if (instance? js/Uint8Array bytes)
                   (create-array-from-typed bytes)
                   bytes)]
     (->> (uuid/unparse b-array)

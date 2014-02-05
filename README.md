@@ -12,11 +12,20 @@ Add the following to your `project.clj`
 
 ## Usage
 
+Fressian-cljs uses ArrayBuffer to read/write fressian objects.
+
 ```clojure
 (ns myapp
   (:require [fressian-cljs.core :as fress])
 
-(fress/write {:a 1 :b 2})
-
+(let [connection (js/WebSocket. "ws://websocket-host")]
+  (set! connection -onmessage #(println (fress/read %)))
+  (.send connection (fress/write {:a 1 :b 2})))
 ```
+
+## License
+
+Copyright (C) 2014 kawasima
+
+Distributed under the Eclipse Public License, the same as Clojure.
 
