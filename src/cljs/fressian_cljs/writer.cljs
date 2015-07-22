@@ -1,8 +1,7 @@
 (ns fressian-cljs.writer
   (:use [fressian-cljs.defs :only [codes ranges tag-to-code TaggedObject
                                    old-index]]
-        [fressian-cljs.fns :only [read-utf8-chars expected lookup
-                                  buffer-string-chunk-utf8 uuid-to-byte-array]])
+        [fressian-cljs.fns :only [read-utf8-chars expected buffer-string-chunk-utf8 uuid-to-byte-array]])
   (:require [goog.string :as gstring]
             [goog.string.format]
             [fressian-cljs.adler32 :as adler32]))

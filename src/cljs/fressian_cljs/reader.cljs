@@ -1,7 +1,6 @@
 (ns fressian-cljs.reader
   (:use [fressian-cljs.defs :only [codes TaggedObject StructType]]
-        [fressian-cljs.fns :only [ read-utf8-chars expected lookup
-                                   byte-array-to-uuid]])
+        [fressian-cljs.fns :only [read-utf8-chars expected byte-array-to-uuid]])
   (:require [goog.string :as gstring]
             [goog.string.format]))
 
