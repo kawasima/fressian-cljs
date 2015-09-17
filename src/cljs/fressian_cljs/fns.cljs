@@ -1,5 +1,6 @@
 (ns fressian-cljs.fns
   (:require [fressian-cljs.uuid :as uuid]
+            [clojure.string :as string]
             [goog.string :as gstring]
             [goog.string.format]))
 
@@ -22,9 +23,7 @@
   (let [b-array (if (instance? js/Uint8Array bytes)
                   (create-array-from-typed bytes)
                   bytes)]
-    (->> (uuid/unparse b-array)
-       (clojure.string/join "-")
-       (UUID.))))
+    (UUID. (string/join "-" (uuid/unparse b-array)) nil)))
 
 (defn read-utf8-chars [source offset length]
   (let [buf (js/Array.)]

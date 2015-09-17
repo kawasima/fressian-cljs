@@ -1,4 +1,5 @@
-(ns fressian-cljs.uuid)
+(ns fressian-cljs.uuid
+  (:require [clojure.string :as string]))
 
 (defn rng []
   (let [r (atom 0)]
@@ -27,7 +28,7 @@
 (defn parse [s]
   (let [buf (make-array 16)
         idx (atom 0)]
-    (clojure.string/replace (.toLowerCase s) #"[0-9a-f]{2}"
+    (string/replace (.toLowerCase s) #"[0-9a-f]{2}"
       (fn [oct]
         (when (< @idx 16)
           (aset buf @idx (js/parseInt (str "0x" oct)))
@@ -45,4 +46,4 @@
                         (bit-or (bit-and item 0x3f) 0x80)
                         item)))
        (unparse)
-       (clojure.string/join "-")))
+       (string/join "-")))

@@ -5,11 +5,14 @@
         [fressian-cljs.adler32 :only [make-adler32]]
         [fressian-cljs.defs :only [TaggedObject create-interleaved-index-hop-map]]))
 
+(defn load-string [s]
+  (throw (js/Error. "load-string not supported.")))
+
 (defn- record-map-constructor-name
   "Return the map constructor for a record"
   [rname]
   (let [comps (string/split (str rname) #"\.")]
-    (str (->> (butlast comps) (map #(str/replace % "_" "-"))
+    (str (->> (butlast comps) (map #(string/replace % "_" "-"))
            (string/join "."))
       "/map->" (last comps))))
 
