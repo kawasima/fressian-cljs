@@ -125,7 +125,7 @@
   (let [f64array (js/Float64Array. 1)]
     (aset f64array 0 f)
     (let [bytes (js/Uint8Array. (. f64array -buffer))]
-      (dotimes [i 8]
+      (doseq [i (range 7 -1 -1)]
           (write-raw-byte wtr (aget bytes i)))))
   wtr)
 
@@ -256,7 +256,9 @@
     ;; Integer/Long
     (= (.ceil js/Math n) n) (write-int wtr n)
     ;; Float
-    (< (.pow js/Math 2 -126) n (.pow js/Math 2 128)) (write-float wtr n)
+    ;; Don't bother with floats
+    (and (< (.pow js/Math 2 -126) n (.pow js/Math 2 128)) false)
+      (write-float wtr n)
     ;; Double
     :default (write-double wtr n)))
 

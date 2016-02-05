@@ -157,17 +157,18 @@
 (defn read-raw-float [reader]
   (let [f32buf (js/Float32Array. 1)
         u8buf  (js/Uint8Array. (. f32buf -buffer))]
-    (dotimes [i 4]
+    (dotimes [i (range 3 -1 -1)]
       (let [b (read-raw-byte reader)]
         (aset u8buf i b)))
     (aget f32buf 0)))
 
 (defn read-raw-double [reader]
   (let [buf (js/ArrayBuffer. 8)
-        h (read-raw-int32 reader)
-        l (read-raw-int32 reader)]
-    (aset (js/Int32Array. buf) 0 h)
-    (aset (js/Int32Array. buf) 1 l)
+        u8buf  (js/Uint8Array. buf)]
+
+    (doseq [i (range 7 -1 -1)]
+      (let [b (read-raw-byte reader)]
+        (aset u8buf i b)))
     (aget (js/Float64Array. buf) 0)))
 
 (defn- internal-read-int32 [reader] (internal-read-int reader))
@@ -290,11 +291,11 @@
    (= code (codes :put-priority-cache)) (read-and-cache-object reader)
    (= code (codes :get-priority-cache)) (lookup-cache (:priority-cache @reader) (read-int32 reader))
 
-   (<= (codes :priority-cache-packed-start) code (+ (codes :priority-cache-packed-start) 31))
+   (<= (codes :priority-cache-packed-start) code (+ (codes :priority-cache-packed-start) 30))
    (lookup-cache (:priority-cache @reader) (- code (codes :priority-cache-packed-start)))
 
    (<= (codes :struct-cache-packed-start) code (+ (codes :struct-cache-packed-start) 15))
-   (let [st (lookup-cache (:priority-cache @reader) (- code (codes :struct-cache-packed-start)))]
+   (let [st (lookup-cache (:struct-cache @reader) (- code (codes :struct-cache-packed-start)))]
      (handle-struct reader (:tag st) (:fields st)))
 
    (= code (codes :map)) (handle-struct reader "map" 1)
