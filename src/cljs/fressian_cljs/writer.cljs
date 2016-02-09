@@ -229,7 +229,7 @@
 
 (defn write-map [wtr m]
   (write-tag wtr "map" 1)
-  (write-list wtr (flatten (seq m))))
+  (write-list wtr (apply concat m)))
 
 (defn write-set [wtr s]
   (write-tag wtr "set" 1)

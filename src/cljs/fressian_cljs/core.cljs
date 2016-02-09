@@ -48,12 +48,7 @@
     "vec"    (fn [reader tag component-count]
                (vec (read-object reader)))})
 
-(def cljs-write-handler
-  { cljs.core/PersistentVector
-    { "vec"
-      (fn [wtr v]
-        (write-tag wtr "vec" 1)
-        (write-list wtr (seq v)))}})
+(def cljs-write-handlers {})
 
 (defmulti create-reader type)
 (defmethod create-reader js/ArrayBuffer [buf & {:keys [handlers]}]
@@ -61,6 +56,9 @@
           (or handlers cljs-read-handler)
           []
           [])))
+
+(defmethod create-reader js/Int8Array [arr & args]
+  (apply create-reader (.-buffer arr) args))
 
 (defmethod create-reader js/Blob [buf & {:keys [handlers]}]
   (throw "Blob FressianReader has been implemented yet."))
@@ -71,7 +69,7 @@
 (defn create-writer [& {:keys [handlers]}]
   (let [buffer (js/ArrayBuffer. 65536)]
     (atom (FressianWriter. buffer 0
-            (or handlers cljs-write-handler) (make-adler32)
+            (or handlers cljs-write-handlers) (make-adler32)
             (create-interleaved-index-hop-map 16)
             (create-interleaved-index-hop-map 16)))))
 
