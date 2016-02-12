@@ -9,21 +9,55 @@
              (for [n (range 0 (. buf -length))]
                (.toString (bit-and (aget buf n) 0xff) 16)))))
 
+; Example binary output from clojure.data.fressian
+; to test against.
+(def EXAMPLES
+  {{:abc "ABC"}
+    [0xc0 0xe6 0xca 0xf7
+     0xcd 0xdd 0x61 0x62
+     0x63 0xdd 0x41 0x42
+     0x43]
+
+    [1 2 3]
+    [0xe7 0x10 0x20 0x30]
+
+    #{1 2 3}
+    [0xc1 0xe7 0x10 0x30
+     0x2]
+
+    {:a "foo" :b #"foo" :c 2.0 :d 30}
+    [0xc0 0xec 0x8 0xca
+     0xf7 0xcd 0xdb 0x61
+     0xdd 0x66 0x6f 0x6f
+     0xca 0xf7 0xcd 0xdb
+     0x62 0xc4 0xdd 0x66
+     0x6f 0x6f 0xca 0xf7
+     0xcd 0xdb 0x63 0xfa
+     0x40 0x00 0x00 0x00
+     0x00 0x00 0x00 0x00
+     0xca 0xf7 0xcd 0xdb
+     0x64 0x1e]
+  })
+
+(defn vec->bytes
+  [v]
+  (let [buf (js/ArrayBuffer. (count v))
+        arr (js/Uint8Array. buf)]
+    (doall (map-indexed #(aset arr %1 %2) v))
+    buf))
+
 (deftest read-test
-  (let [ buf (js/ArrayBuffer. 13)
-         arr (js/Uint8Array. buf)
-         fress-data [ 0xc0 0xe6 0xca 0xf7 0xcd ;; {:abc "ABC"}
-                      0xdd 0x61 0x62 0x63 0xdd 0x41 0x42 0x43]]
-    (doall (map-indexed #(aset arr %1 %2) fress-data))
-    (let [obj (fress/read buf)]
-      (is (= {:abc "ABC"} obj))
+  (doseq [[v fress] EXAMPLES]
+    (let [obj (fress/read (vec->bytes fress))]
+      (is (= v obj))
       (prn obj))))
 
 (deftest write-test
-  (let [arr (fress/write {:abc "ABC"})]
-    (print-buf arr)
-    (prn (fress/read (. arr -buffer)))
-    (is (= {:abc "ABC"} (fress/read (. arr -buffer))))))
+  (doseq [[v fress] EXAMPLES]
+    (let [arr (fress/write v)
+          new-v (fress/read (. arr -buffer))]
+      (print-buf arr)
+      (is (= v new-v)))))
 
 (deftest list-fress
   (let [ arr (fress/write [:a :b :c])
