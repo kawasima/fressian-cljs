@@ -7,7 +7,7 @@ Read and write fressian data by clojurescript.
 Add the following to your `project.clj`
 
 ```clojure
-[net.unit8/fressian-cljs "0.1.0"]
+[net.unit8/fressian-cljs "0.2.0"]
 ```
 
 ## Usage
