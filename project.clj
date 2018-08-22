@@ -1,4 +1,4 @@
-(defproject joelsanchez/fressian-cljs "0.2.0"
+(defproject joelsanchez/fressian-cljs "0.2.1"
   :dependencies [[org.clojure/clojurescript "1.7.122" :scope "provided"]]
   :plugins [[lein-cljsbuild "1.1.0"]
             [com.cemerick/clojurescript.test "0.3.3"]]
