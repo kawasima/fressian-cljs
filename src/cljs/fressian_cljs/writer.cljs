@@ -274,6 +274,9 @@
   (write-tag wtr "inst" 1)
   (write-int wtr (.getTime d)))
 
+(defmethod internal-write js/ArrayBuffer [wtr d]
+  (write-bytes wtr (js/Uint8Array. d)))
+
 ;; Javascript Array
 (defmethod internal-write js/Array [wtr arr]
   (write-list wtr arr))
