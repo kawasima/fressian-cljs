@@ -3,6 +3,10 @@
   :plugins [[lein-cljsbuild "1.1.0"]
             [com.cemerick/clojurescript.test "0.3.3"]]
   :source-paths ["src/clj" "src/cljs"]
+  :description "Fork of kawasima/fressian-cljs with support for ArrayBuffers"
+  :url "https://github.com/JoelSanchez/fressian-cljs"
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
   :cljsbuild
   { :builds 
     {:product
