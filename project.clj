@@ -7,6 +7,12 @@
   :url "https://github.com/JoelSanchez/fressian-cljs"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :repositories {"releases"
+                 {:url "https://repo.clojars.org"
+                  :creds :gpg}
+                 "snapshots"
+                 {:url "https://repo.clojars.org"
+                  :creds :gpg}}
   :cljsbuild
   { :builds 
     {:product
